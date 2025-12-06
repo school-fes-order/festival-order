@@ -11,33 +11,40 @@
 <header>管理画面</header>
 
 <section>
+  <!-- 営業状態切替 -->
   <button id="toggleOpen">営業状態切替</button>
   <p id="shopStatus"></p>
 
+  <!-- メニュー管理 -->
   <h2>メニュー管理</h2>
   <div id="menuList"></div>
 
+  <!-- 注文一覧 -->
   <h2>注文一覧</h2>
   <div id="ordersList"></div>
 
+  <!-- 同時アクセス人数 -->
   <p id="visitors"></p>
 </section>
 
 <script>
 const API = "https://script.google.com/macros/s/AKfycbx2-ndOa2I7toHYqaSt2Dga64IrUBxj3myYIgBgMznfkazVXWII6v1WPG4wKOf_8KwYgA/exec";
 
-/* 店の状態 */
+/* 店の状態取得 */
 async function loadShop() {
   const res = await fetch(`${API}?action=shop`);
   const data = await res.json();
   document.getElementById("shopStatus").innerText = data.isOpen ? "営業中" : "一時休止";
 }
 
-/* 営業切替 */
+/* 営業切替ボタン */
 document.getElementById("toggleOpen").onclick = async () => {
-  await fetch(API,{method:"POST",body:JSON.stringify({action:"toggleOpen"})});
+  await fetch(API,{
+    method:"POST",
+    body:JSON.stringify({action:"toggleOpen"})
+  });
   loadShop();
-}
+};
 
 /* メニュー管理 */
 async function loadMenu() {
@@ -45,21 +52,24 @@ async function loadMenu() {
   const menu = await res.json();
   const div = document.getElementById("menuList");
   div.innerHTML = "";
-  menu.forEach((m, index)=>{
-    const d = document.createElement("div");
-    d.className = "menu-item";
-    d.innerHTML = `${m.name} (${m.soldout?"売り切れ":"販売中"}) 
+  menu.forEach((m,index)=>{
+    const itemDiv = document.createElement("div");
+    itemDiv.className = "menu-item";
+    itemDiv.innerHTML = `${m.name} (${m.soldout?"売り切れ":"販売中"})
       <button data-name="${m.name}">切替</button>`;
-    d.querySelector("button").onclick = async e=>{
-      await fetch(API,{method:"POST",body:JSON.stringify({action:"toggleSoldout",name:e.target.dataset.name})});
+    itemDiv.querySelector("button").onclick = async e=>{
+      await fetch(API,{
+        method:"POST",
+        body:JSON.stringify({action:"toggleSoldout", name:e.target.dataset.name})
+      });
       loadMenu();
-    }
-    div.appendChild(d);
-    setTimeout(()=>d.classList.add("show"), index*100);
+    };
+    div.appendChild(itemDiv);
+    setTimeout(()=>itemDiv.classList.add("show"), index*100); // アニメーション
   });
 }
 
-/* 注文一覧 */
+/* 注文一覧表示 */
 async function loadOrders() {
   const res = await fetch(`${API}?action=orders`);
   const orders = await res.json();
@@ -91,8 +101,14 @@ loadShop();
 loadMenu();
 loadOrders();
 getVisitorCount();
-setInterval(()=>{loadOrders();loadMenu();loadShop();getVisitorCount();},5000);
-</script>
 
+/* 定期更新 */
+setInterval(()=>{
+  loadShop();
+  loadMenu();
+  loadOrders();
+  getVisitorCount();
+},5000);
+</script>
 </body>
 </html>
