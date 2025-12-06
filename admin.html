@@ -2,23 +2,26 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>管理画面</title>
-<style>
-body{font-family:sans-serif;margin:20px;}
-button{margin-left:5px;}
-.soldout{color:red;}
-</style>
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
-<h1>管理画面</h1>
-<button id="toggleOpen">営業状態切替</button>
-<p id="shopStatus"></p>
 
-<h2>メニュー管理</h2>
-<div id="menuList"></div>
+<header>管理画面</header>
 
-<h2>注文一覧</h2>
-<div id="ordersList"></div>
+<section>
+  <button id="toggleOpen">営業状態切替</button>
+  <p id="shopStatus"></p>
+
+  <h2>メニュー管理</h2>
+  <div id="menuList"></div>
+
+  <h2>注文一覧</h2>
+  <div id="ordersList"></div>
+
+  <p id="visitors"></p>
+</section>
 
 <script>
 const API = "https://script.google.com/macros/s/AKfycbx2-ndOa2I7toHYqaSt2Dga64IrUBxj3myYIgBgMznfkazVXWII6v1WPG4wKOf_8KwYgA/exec";
@@ -42,8 +45,9 @@ async function loadMenu() {
   const menu = await res.json();
   const div = document.getElementById("menuList");
   div.innerHTML = "";
-  menu.forEach(m=>{
+  menu.forEach((m, index)=>{
     const d = document.createElement("div");
+    d.className = "menu-item";
     d.innerHTML = `${m.name} (${m.soldout?"売り切れ":"販売中"}) 
       <button data-name="${m.name}">切替</button>`;
     d.querySelector("button").onclick = async e=>{
@@ -51,6 +55,7 @@ async function loadMenu() {
       loadMenu();
     }
     div.appendChild(d);
+    setTimeout(()=>d.classList.add("show"), index*100);
   });
 }
 
@@ -67,11 +72,27 @@ async function loadOrders() {
   });
 }
 
+/* 同時アクセス人数 */
+function getVisitorCount(){
+  const userId = localStorage.getItem("visitorId") || Date.now().toString() + Math.random();
+  localStorage.setItem("visitorId", userId);
+  fetch(API, {
+    method:"POST",
+    body: JSON.stringify({action:"trackVisitor",userId})
+  })
+  .then(res => res.json())
+  .then(data => {
+    document.getElementById("visitors").innerText = `現在アクセス中: ${data.count}人`;
+  });
+}
+
 /* 初期表示 */
 loadShop();
 loadMenu();
 loadOrders();
-setInterval(()=>{loadOrders();loadMenu();loadShop();},5000); // 5秒ごと更新
+getVisitorCount();
+setInterval(()=>{loadOrders();loadMenu();loadShop();getVisitorCount();},5000);
 </script>
+
 </body>
 </html>
