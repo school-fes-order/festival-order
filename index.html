@@ -2,25 +2,26 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>文化祭モバイルオーダー</title>
-<style>
-body{font-family:sans-serif;margin:20px;}
-.menu-item{margin-bottom:10px;}
-button{margin-left:5px;}
-.soldout{color:red;}
-</style>
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
 
-<h1>文化祭モバイルオーダー</h1>
-<p id="shopStatus"></p>
+<header>文化祭モバイルオーダー</header>
 
-<h2>メニュー</h2>
-<div id="menu"></div>
+<section>
+  <p id="shopStatus"></p>
 
-<h2>カート</h2>
-<div id="cart"></div>
-<button id="orderBtn">注文する</button>
+  <h2>メニュー</h2>
+  <div id="menu"></div>
+
+  <h2>カート</h2>
+  <div id="cart"></div>
+  <button id="orderBtn">注文する</button>
+
+  <p id="visitors"></p>
+</section>
 
 <script>
 const API = "https://script.google.com/macros/s/AKfycbx2-ndOa2I7toHYqaSt2Dga64IrUBxj3myYIgBgMznfkazVXWII6v1WPG4wKOf_8KwYgA/exec";
@@ -28,7 +29,7 @@ const API = "https://script.google.com/macros/s/AKfycbx2-ndOa2I7toHYqaSt2Dga64Ir
 let menuData = [];
 let cart = [];
 
-/* 店の状態取得 */
+/* 店の状態 */
 async function loadShop() {
   const res = await fetch(`${API}?action=shop`);
   const data = await res.json();
@@ -43,19 +44,20 @@ async function loadMenu() {
   renderMenu();
 }
 
-/* メニュー描画 */
+/* メニュー描画（アニメーション） */
 function renderMenu() {
   const div = document.getElementById("menu");
   div.innerHTML = "";
-  menuData.forEach(item => {
+  menuData.forEach((item, index) => {
     const itemDiv = document.createElement("div");
     itemDiv.className = "menu-item";
-    itemDiv.innerHTML = `${item.name} - ${item.price}円 
+    itemDiv.innerHTML = `<span>${item.name} - ${item.price}円</span>
       ${item.soldout ? '<span class="soldout">売り切れ</span>' : '<button>追加</button>'}`;
     if(!item.soldout){
       itemDiv.querySelector("button").onclick = () => addToCart(item);
     }
     div.appendChild(itemDiv);
+    setTimeout(() => itemDiv.classList.add("show"), index * 100);
   });
 }
 
@@ -92,10 +94,26 @@ document.getElementById("orderBtn").onclick = async () => {
   loadMenu();
 }
 
+/* 同時アクセス人数 */
+function getVisitorCount(){
+  const userId = localStorage.getItem("visitorId") || Date.now().toString() + Math.random();
+  localStorage.setItem("visitorId", userId);
+  fetch(API, {
+    method:"POST",
+    body: JSON.stringify({action:"trackVisitor",userId})
+  })
+  .then(res => res.json())
+  .then(data => {
+    document.getElementById("visitors").innerText = `現在アクセス中: ${data.count}人`;
+  });
+}
+
 /* 初期表示 */
 async function init() {
   const open = await loadShop();
   if(open) await loadMenu();
+  getVisitorCount();
+  setInterval(getVisitorCount, 5000);
 }
 init();
 </script>
