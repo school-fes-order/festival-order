@@ -5,12 +5,34 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>管理画面</title>
 <link rel="stylesheet" href="style.css">
+<style>
+/* ボタンを大きく */
+button {
+  font-size: 1.2em;
+  padding: 12px 20px;
+  margin: 5px 0;
+}
+
+/* お知らせ用 */
+#notice {
+  background-color: #fffae6;
+  color: #ff6f61;
+  padding: 10px;
+  margin-bottom: 15px;
+  border-radius: 8px;
+  display: none; /* 初期非表示 */
+  font-weight: bold;
+}
+</style>
 </head>
 <body>
 
 <header>管理画面</header>
 
 <section>
+  <!-- お知らせ表示 -->
+  <div id="notice"></div>
+
   <!-- 営業状態切替 -->
   <button id="toggleOpen">営業状態切替</button>
   <p id="shopStatus"></p>
@@ -30,20 +52,43 @@
 <script>
 const API = "https://script.google.com/macros/s/AKfycbx2-ndOa2I7toHYqaSt2Dga64IrUBxj3myYIgBgMznfkazVXWII6v1WPG4wKOf_8KwYgA/exec";
 
+let actionLocked = false;
+
+/* お知らせ表示 */
+function showNotice(msg, duration=3000){
+  const notice = document.getElementById("notice");
+  notice.innerText = msg;
+  notice.style.display = "block";
+  setTimeout(()=>{ notice.style.display="none"; }, duration);
+}
+
 /* 店の状態取得 */
 async function loadShop() {
   const res = await fetch(`${API}?action=shop`);
   const data = await res.json();
   document.getElementById("shopStatus").innerText = data.isOpen ? "営業中" : "一時休止";
+  if(!data.isOpen) showNotice("現在は一時休止中です");
 }
 
-/* 営業切替ボタン */
+/* 営業切替（連打防止） */
 document.getElementById("toggleOpen").onclick = async () => {
-  await fetch(API,{
-    method:"POST",
-    body:JSON.stringify({action:"toggleOpen"})
-  });
-  loadShop();
+  if(actionLocked) return;
+  actionLocked = true;
+  const btn = document.getElementById("toggleOpen");
+  btn.disabled = true;
+  btn.innerText = "処理中...";
+  
+  try{
+    await fetch(API,{method:"POST", body:JSON.stringify({action:"toggleOpen"})});
+    loadShop();
+    showNotice("営業状態を切り替えました");
+  }catch(e){
+    showNotice("送信に失敗しました");
+  }
+  
+  btn.disabled = false;
+  btn.innerText = "営業状態切替";
+  actionLocked = false;
 };
 
 /* メニュー管理 */
@@ -58,14 +103,24 @@ async function loadMenu() {
     itemDiv.innerHTML = `${m.name} (${m.soldout?"売り切れ":"販売中"})
       <button data-name="${m.name}">切替</button>`;
     itemDiv.querySelector("button").onclick = async e=>{
-      await fetch(API,{
-        method:"POST",
-        body:JSON.stringify({action:"toggleSoldout", name:e.target.dataset.name})
-      });
-      loadMenu();
+      if(actionLocked) return;
+      actionLocked = true;
+      const btn = e.target;
+      btn.disabled = true;
+      btn.innerText = "処理中...";
+      try{
+        await fetch(API,{method:"POST",body:JSON.stringify({action:"toggleSoldout", name:btn.dataset.name})});
+        loadMenu();
+        showNotice(`${btn.dataset.name} の売り切れ状態を切替ました`);
+      }catch(e){
+        showNotice("送信に失敗しました");
+      }
+      btn.disabled = false;
+      btn.innerText = "切替";
+      actionLocked = false;
     };
     div.appendChild(itemDiv);
-    setTimeout(()=>itemDiv.classList.add("show"), index*100); // アニメーション
+    setTimeout(()=>itemDiv.classList.add("show"), index*100);
   });
 }
 
@@ -109,6 +164,7 @@ setInterval(()=>{
   loadOrders();
   getVisitorCount();
 },5000);
+
 </script>
 </body>
 </html>
