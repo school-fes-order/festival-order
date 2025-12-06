@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>文化祭モバイルオーダー</title>
+<style>
+body{font-family:sans-serif;margin:20px;}
+.menu-item{margin-bottom:10px;}
+button{margin-left:5px;}
+.soldout{color:red;}
+</style>
+</head>
+<body>
+
+<h1>文化祭モバイルオーダー</h1>
+<p id="shopStatus"></p>
+
+<h2>メニュー</h2>
+<div id="menu"></div>
+
+<h2>カート</h2>
+<div id="cart"></div>
+<button id="orderBtn">注文する</button>
+
+<script>
+const API = "https://script.google.com/macros/s/AKfycbx2-ndOa2I7toHYqaSt2Dga64IrUBxj3myYIgBgMznfkazVXWII6v1WPG4wKOf_8KwYgA/exec";
+
+let menuData = [];
+let cart = [];
+
+/* 店の状態取得 */
+async function loadShop() {
+  const res = await fetch(`${API}?action=shop`);
+  const data = await res.json();
+  document.getElementById("shopStatus").innerText = data.isOpen ? "営業中" : "一時休止";
+  return data.isOpen;
+}
+
+/* メニュー取得 */
+async function loadMenu() {
+  const res = await fetch(`${API}?action=menu`);
+  menuData = await res.json();
+  renderMenu();
+}
+
+/* メニュー描画 */
+function renderMenu() {
+  const div = document.getElementById("menu");
+  div.innerHTML = "";
+  menuData.forEach(item => {
+    const itemDiv = document.createElement("div");
+    itemDiv.className = "menu-item";
+    itemDiv.innerHTML = `${item.name} - ${item.price}円 
+      ${item.soldout ? '<span class="soldout">売り切れ</span>' : '<button>追加</button>'}`;
+    if(!item.soldout){
+      itemDiv.querySelector("button").onclick = () => addToCart(item);
+    }
+    div.appendChild(itemDiv);
+  });
+}
+
+/* カート処理 */
+function addToCart(item) {
+  cart.push(item);
+  renderCart();
+}
+
+function renderCart() {
+  const div = document.getElementById("cart");
+  div.innerHTML = "";
+  cart.forEach((i, idx) => {
+    const d = document.createElement("div");
+    d.innerHTML = `${i.name} - ${i.price}円 <button data-idx="${idx}">削除</button>`;
+    d.querySelector("button").onclick = e => {
+      cart.splice(e.target.dataset.idx,1);
+      renderCart();
+    }
+    div.appendChild(d);
+  });
+}
+
+/* 注文送信 */
+document.getElementById("orderBtn").onclick = async () => {
+  if(cart.length===0){alert("カートが空です");return;}
+  await fetch(API,{
+    method:"POST",
+    body:JSON.stringify({action:"addOrder",items:cart})
+  });
+  alert("注文を受け付けました！");
+  cart=[];
+  renderCart();
+  loadMenu();
+}
+
+/* 初期表示 */
+async function init() {
+  const open = await loadShop();
+  if(open) await loadMenu();
+}
+init();
+</script>
+</body>
+</html>
