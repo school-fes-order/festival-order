@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>管理画面</title>
+<style>
+body{font-family:sans-serif;margin:20px;}
+button{margin-left:5px;}
+.soldout{color:red;}
+</style>
+</head>
+<body>
+<h1>管理画面</h1>
+<button id="toggleOpen">営業状態切替</button>
+<p id="shopStatus"></p>
+
+<h2>メニュー管理</h2>
+<div id="menuList"></div>
+
+<h2>注文一覧</h2>
+<div id="ordersList"></div>
+
+<script>
+const API = "https://script.google.com/macros/s/AKfycbx2-ndOa2I7toHYqaSt2Dga64IrUBxj3myYIgBgMznfkazVXWII6v1WPG4wKOf_8KwYgA/exec";
+
+/* 店の状態 */
+async function loadShop() {
+  const res = await fetch(`${API}?action=shop`);
+  const data = await res.json();
+  document.getElementById("shopStatus").innerText = data.isOpen ? "営業中" : "一時休止";
+}
+
+/* 営業切替 */
+document.getElementById("toggleOpen").onclick = async () => {
+  await fetch(API,{method:"POST",body:JSON.stringify({action:"toggleOpen"})});
+  loadShop();
+}
+
+/* メニュー管理 */
+async function loadMenu() {
+  const res = await fetch(`${API}?action=menu`);
+  const menu = await res.json();
+  const div = document.getElementById("menuList");
+  div.innerHTML = "";
+  menu.forEach(m=>{
+    const d = document.createElement("div");
+    d.innerHTML = `${m.name} (${m.soldout?"売り切れ":"販売中"}) 
+      <button data-name="${m.name}">切替</button>`;
+    d.querySelector("button").onclick = async e=>{
+      await fetch(API,{method:"POST",body:JSON.stringify({action:"toggleSoldout",name:e.target.dataset.name})});
+      loadMenu();
+    }
+    div.appendChild(d);
+  });
+}
+
+/* 注文一覧 */
+async function loadOrders() {
+  const res = await fetch(`${API}?action=orders`);
+  const orders = await res.json();
+  const div = document.getElementById("ordersList");
+  div.innerHTML = "";
+  orders.forEach(o=>{
+    const d = document.createElement("div");
+    d.innerHTML = `ID:${o.id} - ${o.items.map(i=>i.name).join(", ")} - ${o.status}`;
+    div.appendChild(d);
+  });
+}
+
+/* 初期表示 */
+loadShop();
+loadMenu();
+loadOrders();
+setInterval(()=>{loadOrders();loadMenu();loadShop();},5000); // 5秒ごと更新
+</script>
+</body>
+</html>
