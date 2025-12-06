@@ -11,15 +11,19 @@
 <header>文化祭モバイルオーダー</header>
 
 <section>
+  <!-- 営業状態 -->
   <p id="shopStatus"></p>
 
+  <!-- メニュー -->
   <h2>メニュー</h2>
   <div id="menu"></div>
 
+  <!-- カート -->
   <h2>カート</h2>
   <div id="cart"></div>
   <button id="orderBtn">注文する</button>
 
+  <!-- 同時アクセス人数 -->
   <p id="visitors"></p>
 </section>
 
@@ -44,7 +48,7 @@ async function loadMenu() {
   renderMenu();
 }
 
-/* メニュー描画（アニメーション） */
+/* メニュー描画（アニメーション付き） */
 function renderMenu() {
   const div = document.getElementById("menu");
   div.innerHTML = "";
@@ -57,7 +61,7 @@ function renderMenu() {
       itemDiv.querySelector("button").onclick = () => addToCart(item);
     }
     div.appendChild(itemDiv);
-    setTimeout(() => itemDiv.classList.add("show"), index * 100);
+    setTimeout(()=>itemDiv.classList.add("show"), index*100);
   });
 }
 
@@ -113,9 +117,14 @@ async function init() {
   const open = await loadShop();
   if(open) await loadMenu();
   getVisitorCount();
-  setInterval(getVisitorCount, 5000);
+  setInterval(()=>{
+    loadShop();
+    loadMenu();
+    getVisitorCount();
+  },5000);
 }
 init();
 </script>
+
 </body>
 </html>
