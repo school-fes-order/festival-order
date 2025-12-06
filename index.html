@@ -6,10 +6,23 @@
 <title>文化祭モバイルオーダー</title>
 <link rel="stylesheet" href="style.css">
 <style>
+/* 営業状態表示を大きく */
+#shopStatus {
+  font-size: 2em;
+  font-weight: bold;
+  margin: 10px 0;
+  color: #ff6f61;
+  text-align: center;
+}
+
 /* ボタンを大きく */
 button {
   font-size: 1.2em;
   padding: 12px 20px;
+  margin: 5px 0;
+  width: 100%;
+  border-radius: 8px;
+  cursor: pointer;
 }
 
 /* お知らせ用 */
@@ -19,8 +32,48 @@ button {
   padding: 10px;
   margin-bottom: 15px;
   border-radius: 8px;
-  display: none; /* 初期非表示 */
   font-weight: bold;
+  text-align: center;
+}
+
+/* メニューアイテム */
+.menu-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #fff3e0;
+  padding: 12px;
+  margin-bottom: 10px;
+  border-radius: 8px;
+  box-shadow: 0 2px 3px rgba(0,0,0,0.1);
+  opacity: 0;
+  transform: translateY(20px);
+  transition: all 0.4s ease;
+}
+.menu-item.show { opacity: 1; transform: translateY(0); }
+
+.menu-item button {
+  flex-shrink: 0;
+}
+
+/* カート内 */
+#cart div {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 5px;
+}
+
+/* 注文一覧 */
+#orderHistory {
+  margin-top: 15px;
+  background: #e0f7fa;
+  padding: 10px;
+  border-radius: 8px;
+}
+
+@media(max-width: 600px){
+  .menu-item { flex-direction: column; align-items: flex-start; }
+  .menu-item button { margin-top: 5px; width: 100%; }
 }
 </style>
 </head>
@@ -29,10 +82,11 @@ button {
 <header>文化祭モバイルオーダー</header>
 
 <section>
+  <!-- お知らせ常時 -->
+  <div id="notice">本日は文化祭！メニューの内容をご確認ください</div>
+
+  <!-- 営業状態 -->
   <p id="shopStatus"></p>
-  
-  <!-- お知らせ表示 -->
-  <div id="notice"></div>
 
   <h2>メニュー</h2>
   <div id="menu"></div>
@@ -41,6 +95,11 @@ button {
   <div id="cart"></div>
   <button id="orderBtn">注文する</button>
 
+  <!-- 注文履歴（自分が注文したもの簡易表示） -->
+  <h2>注文履歴</h2>
+  <div id="orderHistory">まだ注文はありません</div>
+
+  <!-- 同時アクセス人数 -->
   <p id="visitors"></p>
 </section>
 
@@ -49,24 +108,34 @@ const API = "https://script.google.com/macros/s/AKfycbx2-ndOa2I7toHYqaSt2Dga64Ir
 
 let menuData = [];
 let cart = [];
-let orderLocked = false; // 連続押し防止
+let orderLocked = false;
+let shopOpen = true;
+let orderHistory = [];
 
 /* お知らせ表示 */
-function showNotice(msg, duration=3000){
+function showTempNotice(msg, duration=3000){
   const notice = document.getElementById("notice");
   notice.innerText = msg;
-  notice.style.display = "block";
-  setTimeout(()=>{ notice.style.display="none"; }, duration);
+  setTimeout(()=>{ notice.innerText = "本日は文化祭！メニューの内容をご確認ください"; }, duration);
 }
 
 /* 店の状態 */
 async function loadShop() {
   const res = await fetch(`${API}?action=shop`);
   const data = await res.json();
-  const status = data.isOpen ? "営業中" : "一時休止";
+  shopOpen = data.isOpen;
+  const status = shopOpen ? "営業中" : "一時休止";
   document.getElementById("shopStatus").innerText = status;
-  if(!data.isOpen) showNotice("現在は一時休止中です");
-  return data.isOpen;
+
+  const orderBtn = document.getElementById("orderBtn");
+  if(shopOpen){
+    orderBtn.disabled = false;
+  } else {
+    orderBtn.disabled = true;
+    showTempNotice("現在は一時休止中です", 3000);
+  }
+
+  return shopOpen;
 }
 
 /* メニュー取得 */
@@ -85,9 +154,13 @@ function renderMenu() {
     itemDiv.className = "menu-item";
     itemDiv.innerHTML = `<span>${item.name} - ${item.price}円</span>
       ${item.soldout ? '<span class="soldout">売り切れ</span>' : '<button>追加</button>'}`;
-    if(!item.soldout){
+    if(!item.soldout && shopOpen){
       const btn = itemDiv.querySelector("button");
       btn.onclick = () => addToCart(item);
+    } else if(!shopOpen && !item.soldout){
+      const btn = itemDiv.querySelector("button");
+      btn.disabled = true;
+      btn.innerText = "注文不可";
     }
     div.appendChild(itemDiv);
     setTimeout(()=>itemDiv.classList.add("show"), index*100);
@@ -96,6 +169,7 @@ function renderMenu() {
 
 /* カート操作 */
 function addToCart(item) {
+  if(!shopOpen) return;
   cart.push(item);
   renderCart();
 }
@@ -116,29 +190,47 @@ function renderCart() {
 
 /* 注文送信（連続押し防止） */
 document.getElementById("orderBtn").onclick = async () => {
-  if(orderLocked) return;
-  if(cart.length===0){ showNotice("カートが空です"); return;}
+  if(orderLocked || !shopOpen) return;
+  if(cart.length===0){ showTempNotice("カートが空です"); return;}
   orderLocked = true;
   const btn = document.getElementById("orderBtn");
   btn.disabled = true;
   btn.innerText = "送信中...";
-  
+
   try{
     await fetch(API,{
       method:"POST",
       body:JSON.stringify({action:"addOrder",items:cart})
     });
-    showNotice("注文を受け付けました！");
+    showTempNotice("注文を受け付けました！");
+    // 注文履歴に追加
+    orderHistory.push(...cart);
+    updateOrderHistory();
     cart=[];
     renderCart();
     loadMenu();
   }catch(e){
-    showNotice("送信に失敗しました");
+    showTempNotice("送信に失敗しました");
   }
-  
+
   btn.disabled = false;
   btn.innerText = "注文する";
   orderLocked = false;
+}
+
+/* 注文履歴更新 */
+function updateOrderHistory() {
+  const div = document.getElementById("orderHistory");
+  if(orderHistory.length === 0){
+    div.innerText = "まだ注文はありません";
+  } else {
+    div.innerHTML = "";
+    orderHistory.forEach((item, idx)=>{
+      const d = document.createElement("div");
+      d.innerText = `${item.name} - ${item.price}円`;
+      div.appendChild(d);
+    });
+  }
 }
 
 /* 同時アクセス人数 */
@@ -157,8 +249,9 @@ function getVisitorCount(){
 
 /* 初期表示 */
 async function init() {
-  const open = await loadShop();
-  if(open) await loadMenu();
+  await loadShop();
+  await loadMenu();
+  updateOrderHistory();
   getVisitorCount();
   setInterval(()=>{
     loadShop();
@@ -171,3 +264,4 @@ init();
 
 </body>
 </html>
+
