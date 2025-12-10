@@ -1,78 +1,60 @@
-/* style.css */
 body {
-  font-family: 'Arial', sans-serif;
-  margin: 0;
-  padding: 0;
-  background: #fff8f0;
-  color: #333;
+  font-family: "メイリオ", sans-serif;
+  padding: 10px;
+  background: #f5f5f5;
 }
+
 header {
-  background-color: #ff6f61;
-  color: #fff;
-  padding: 20px;
+  font-size: 1.6em;
+  font-weight: bold;
   text-align: center;
-  font-size: 1.8em;
+  padding: 10px 0;
 }
-section {
+
+/* LED表示 */
+#callDisplay {
+  background: #111;
   padding: 20px;
+  border-radius: 10px;
+  margin: 10px 0;
+  text-align: center;
+  color: #ff5252;
+  font-family: 'Courier New', monospace;
 }
-h2 {
-  color: #ff6f61;
-  margin-bottom: 10px;
+
+#callNumber {
+  font-size: 3.5em;
 }
-.menu-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background: #fff3e0;
-  padding: 10px;
-  margin-bottom: 10px;
-  border-radius: 8px;
-  box-shadow: 0 2px 3px rgba(0,0,0,0.1);
-  opacity: 0;
-  transform: translateY(20px);
-  transition: all 0.5s ease;
+
+#callNumber-admin {
+  font-size: 3.5em;
 }
-.menu-item.show {
-  opacity: 1;
-  transform: translateY(0);
-}
-.menu-item button {
-  background-color: #ff6f61;
-  border: none;
-  color: #fff;
-  padding: 5px 10px;
-  border-radius: 5px;
-  cursor: pointer;
-}
-.menu-item .soldout {
-  color: #d32f2f;
-  font-weight: bold;
-}
-#cart {
-  margin-top: 10px;
-}
-#orderBtn {
-  background-color: #ff6f61;
-  border: none;
-  color: #fff;
-  padding: 10px;
+
+/* 混雑ゲージ */
+#crowdBox {
+  background: #ddd;
   width: 100%;
-  font-size: 1.2em;
-  border-radius: 5px;
-  cursor: pointer;
+  height: 20px;
+  border-radius: 10px;
+  margin: 10px 0;
+  position: relative;
 }
-#visitors {
-  margin-top: 10px;
-  font-weight: bold;
-  color: #1976d2;
+
+#crowdBar {
+  height: 100%;
+  background: green;
+  width: 0%;
+  border-radius: 10px;
+  transition: 0.8s;
 }
-@media (max-width: 600px) {
-  .menu-item {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-  .menu-item button {
-    margin-top: 5px;
-  }
+
+#crowdLabel {
+  text-align: center;
+  margin-top: 5px;
+}
+
+/* QR */
+#qrCanvas {
+  width: 180px;
+  margin: auto;
 }
