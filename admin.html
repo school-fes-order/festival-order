@@ -4,215 +4,40 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>管理画面</title>
-<style>
-body {
-  font-family: "メイリオ", sans-serif;
-  background-color: #f9f4ee;
-  margin: 0;
-  padding: 0 10px;
-}
-
-header {
-  text-align: center;
-  margin: 10px 0;
-  font-size: 1.5em;
-  font-weight: bold;
-  color: #d84315;
-}
-
-/* お知らせ */
-#notice {
-  background-color: #fff3e0;
-  color: #d84315;
-  font-weight: bold;
-  text-align: center;
-  padding: 10px;
-  border-radius: 5px;
-  margin: 10px 0;
-}
-
-/* 営業状態表示 */
-#shopStatus {
-  font-size: 2em;
-  font-weight: bold;
-  text-align: center;
-  margin: 10px 0;
-  color: #ff6f61;
-}
-
-/* ボタン大きく */
-button {
-  font-size: 1.2em;
-  padding: 12px;
-  border-radius: 8px;
-  border: none;
-  background-color: #ff6f61;
-  color: white;
-  cursor: pointer;
-  width: 100%;
-  margin: 5px 0;
-}
-
-/* メニュー項目 */
-.menu-item {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background-color: #fff3e0;
-  padding: 10px 15px;
-  margin-bottom: 10px;
-  border-radius: 8px;
-  flex-wrap: wrap;
-}
-
-.menu-item span {
-  word-break: break-word;
-  max-width: 70%;
-}
-
-/* 注文一覧 */
-#ordersList {
-  background-color: #e0f7fa;
-  padding: 10px;
-  border-radius: 8px;
-  margin-bottom: 10px;
-}
-
-@media(max-width:600px){
-  .menu-item { flex-direction: column; align-items: flex-start; }
-  .menu-item button { width: 100%; margin-top:5px; }
-}
-</style>
+<link rel="stylesheet" href="style.css">
+<script src="https://cdn.jsdelivr.net/npm/qr-scanner/qr-scanner.min.js"></script>
 </head>
 <body>
 
 <header>管理画面</header>
 
-<div id="notice">管理者用画面です。営業状態と注文管理を行います</div>
+<div id="shopStatus-admin">読み込み中...</div>
 
-<button id="toggleOpen">営業状態切替</button>
-<p id="shopStatus">読み込み中...</p>
+<!-- 混雑ゲージ -->
+<div id="crowdBox">
+  <div id="crowdBar"></div>
+  <div id="crowdLabel">混雑状況 読み込み中</div>
+</div>
 
-<h2>メニュー管理</h2>
-<div id="menuList"></div>
+<!-- LED -->
+<div id="callDisplay">
+  <div class="call-title">現在の呼び出し番号</div>
+  <div id="callNumber-admin">--</div>
+</div>
+
+<button id="nextCall">次の番号へ進める</button>
+
+<h2>QR受け取り確認</h2>
+<video id="qrVideo"></video>
+<div id="scanResult">未スキャン</div>
 
 <h2>注文一覧</h2>
-<div id="ordersList">注文はまだありません</div>
+<div id="ordersList"></div>
 
-<p id="visitors"></p>
+<!-- 電子音 -->
+<audio id="callSound" src="sound/call.mp3"></audio>
 
-<script>
-const API = "https://script.google.com/macros/s/AKfycbx2-ndOa2I7toHYqaSt2Dga64IrUBxj3myYIgBgMznfkazVXWII6v1WPG4wKOf_8KwYgA/exec";
-let actionLocked=false;
-let shopOpen=true;
-
-function showNotice(msg,duration=3000){
-  const notice=document.getElementById("notice");
-  notice.innerText=msg;
-  setTimeout(()=>{ notice.innerText="管理者用画面です。営業状態と注文管理を行います"; },duration);
-}
-
-/* 店の状態取得 */
-async function loadShop(){
-  const res = await fetch(`${API}?action=shop`);
-  const data = await res.json();
-  shopOpen = data.isOpen;
-  document.getElementById("shopStatus").innerText = shopOpen?"営業中":"一時休止";
-  if(!shopOpen) showNotice("現在は一時休止中です");
-  return shopOpen;
-}
-
-/* 営業切替 */
-document.getElementById("toggleOpen").onclick=async()=>{
-  if(actionLocked) return;
-  actionLocked=true;
-  const btn=document.getElementById("toggleOpen");
-  btn.disabled=true;
-  btn.innerText="処理中...";
-  try{
-    await fetch(API,{method:"POST",body:JSON.stringify({action:"toggleOpen"})});
-    await loadShop();
-    showNotice("営業状態を切り替えました");
-  }catch(e){
-    showNotice("送信に失敗しました");
-  }
-  btn.disabled=false;
-  btn.innerText="営業状態切替";
-  actionLocked=false;
-}
-
-/* メニュー管理 */
-async function loadMenu(){
-  const res=await fetch(`${API}?action=menu`);
-  const menu=await res.json();
-  const div=document.getElementById("menuList");
-  div.innerHTML="";
-  menu.forEach((m)=>{
-    const itemDiv=document.createElement("div");
-    itemDiv.className="menu-item";
-    itemDiv.innerHTML=`<span>${m.name} (${m.soldout?"売り切れ":"販売中"})</span>
-      <button data-name="${m.name}">切替</button>`;
-    const btn=itemDiv.querySelector("button");
-    btn.onclick=async()=>{
-      if(actionLocked) return;
-      actionLocked=true;
-      btn.disabled=true;
-      btn.innerText="処理中...";
-      try{
-        await fetch(API,{method:"POST",body:JSON.stringify({action:"toggleSoldout",name:btn.dataset.name})});
-        loadMenu();
-        showNotice(`${btn.dataset.name}の売り切れ状態を切替ました`);
-      }catch(e){
-        showNotice("送信に失敗しました");
-      }
-      btn.disabled=false;
-      btn.innerText="切替";
-      actionLocked=false;
-    }
-    div.appendChild(itemDiv);
-  });
-}
-
-/* 注文一覧 */
-async function loadOrders(){
-  const res=await fetch(`${API}?action=orders`);
-  const orders=await res.json();
-  const div=document.getElementById("ordersList");
-  div.innerHTML="";
-  if(orders.length===0){ div.innerText="注文はまだありません"; return; }
-  orders.forEach(o=>{
-    const d=document.createElement("div");
-    d.innerText=`ID:${o.id} - ${o.items.map(i=>i.name).join(", ")} - ${o.status}`;
-    div.appendChild(d);
-  });
-}
-
-/* 同時アクセス人数 */
-function getVisitorCount(){
-  const userId=localStorage.getItem("visitorId") || Date.now().toString()+Math.random();
-  localStorage.setItem("visitorId",userId);
-  fetch(API,{method:"POST",body:JSON.stringify({action:"trackVisitor",userId})})
-  .then(res=>res.json())
-  .then(data=>{
-    document.getElementById("visitors").innerText=`現在アクセス中: ${data.count}人`;
-  });
-}
-
-/* 初期表示 */
-async function init(){
-  await loadShop();
-  await loadMenu();
-  await loadOrders();
-  getVisitorCount();
-  setInterval(()=>{
-    loadShop();
-    loadMenu();
-    loadOrders();
-    getVisitorCount();
-  },5000);
-}
-
-init();
-</script>
+<script src="admin.js"></script>
 </body>
 </html>
+
