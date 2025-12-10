@@ -1,4 +1,4 @@
-const API = "YOUR_GAS_URL";
+const API = "https://script.google.com/macros/s/AKfycbx2-ndOa2I7toHYqaSt2Dga64IrUBxj3myYIgBgMznfkazVXWII6v1WPG4wKOf_8KwYgA/exec";
 const callSound = document.getElementById("callSound");
 
 /* 音＋読み上げ */
