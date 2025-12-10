@@ -4,29 +4,30 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>文化祭モバイルオーダー</title>
-<style>
-body { font-family: "メイリオ", sans-serif; background-color: #f9f4ee; margin:0; padding:0 10px; }
-#notice { background-color:#fff3e0;color:#d84315;font-weight:bold;text-align:center;padding:10px;border-radius:5px;margin:10px 0; }
-#shopStatus { font-size:2em; font-weight:bold; text-align:center; margin:10px 0; color:#ff6f61; }
-h2 { color:#d84315; margin-top:20px; }
-.menu-item { display:flex; justify-content:space-between; align-items:center; background:#fff3e0; padding:10px 15px; margin-bottom:10px; border-radius:8px; flex-wrap:wrap; }
-.menu-item span { word-break: break-word; max-width:70%; }
-.menu-item button { flex-shrink:0; width:25%; min-width:80px; font-size:1em; padding:8px; border-radius:5px; border:none; background:#ff6f61; color:white; cursor:pointer; }
-#cart { background:#fff3e0; padding:10px; border-radius:8px; margin-bottom:10px; }
-#cart div { display:flex; justify-content:space-between; margin-bottom:5px; }
-#orderBtn { width:100%; background:#ff6f61; color:white; font-size:1.2em; padding:12px; border:none; border-radius:8px; cursor:pointer; }
-#orderHistory { background:#e0f7fa; padding:10px; border-radius:8px; margin-bottom:10px; }
-#waitingNumber { font-size:2em; font-weight:bold; text-align:center; margin:10px 0; color:#1e88e5; }
-@media(max-width:600px){ .menu-item{flex-direction:column;align-items:flex-start;} .menu-item button{width:100%; margin-top:5px;} }
-</style>
+<link rel="stylesheet" href="style.css">
+<script src="https://cdn.jsdelivr.net/npm/qrcode/build/qrcode.min.js"></script>
 </head>
 <body>
 
-<header><h1 style="text-align:center;margin:10px 0;">文化祭モバイルオーダー</h1></header>
+<header>文化祭モバイルオーダー</header>
 
-<div id="notice">本日は文化祭！メニューの内容をご確認ください</div>
+<div id="notice">メニューを選んで注文してください</div>
 
-<p id="shopStatus">読み込み中...</p>
+<div id="shopStatus">読み込み中...</div>
+
+<!-- 混雑ゲージ -->
+<div id="crowdBox">
+  <div id="crowdBar"></div>
+  <div id="crowdLabel">混雑状況 読み込み中</div>
+</div>
+
+<!-- LED呼び出し番号 -->
+<div id="callDisplay">
+  <div class="call-title">現在の呼び出し番号</div>
+  <div id="callNumber">--</div>
+</div>
+
+<div id="waitInfo">現在：--組待ち</div>
 
 <h2>メニュー</h2>
 <div id="menu"></div>
@@ -35,140 +36,16 @@ h2 { color:#d84315; margin-top:20px; }
 <div id="cart"></div>
 <button id="orderBtn">注文する</button>
 
-<h2>待機番号</h2>
-<div id="waitingNumber">--</div>
+<!-- QR表示 -->
+<div id="qrArea">
+  <div class="qr-title">受け取り用QRコード</div>
+  <canvas id="qrCanvas"></canvas>
+  <div id="ticketNumber">--</div>
+</div>
 
-<h2>注文履歴</h2>
-<div id="orderHistory">まだ注文はありません</div>
+<!-- 電子音 -->
+<audio id="callSound" src="sound/call.mp3"></audio>
 
-<p id="visitors"></p>
-
-<script>
-const API = "https://script.google.com/macros/s/AKfycbx2-ndOa2I7toHYqaSt2Dga64IrUBxj3myYIgBgMznfkazVXWII6v1WPG4wKOf_8KwYgA/exec";
-
-let menuData=[], cart=[], shopOpen=true, orderLocked=false, orderHistory=[];
-let waitingNumber=0; // 待機番号
-
-function showNotice(msg,duration=3000){
-  const notice=document.getElementById("notice");
-  notice.innerText=msg;
-  setTimeout(()=>{ notice.innerText="本日は文化祭！メニューの内容をご確認ください"; },duration);
-}
-
-async function loadShop(){
-  const res = await fetch(`${API}?action=shop`);
-  const data = await res.json();
-  shopOpen = data.isOpen;
-  document.getElementById("shopStatus").innerText = shopOpen?"営業中":"一時休止";
-  document.getElementById("orderBtn").disabled = !shopOpen;
-  if(!shopOpen) showNotice("現在は一時休止中です");
-  return shopOpen;
-}
-
-async function loadMenu(){
-  const res = await fetch(`${API}?action=menu`);
-  menuData = await res.json();
-  renderMenu();
-}
-
-function renderMenu(){
-  const div=document.getElementById("menu");
-  div.innerHTML="";
-  menuData.forEach((item)=>{
-    const itemDiv=document.createElement("div");
-    itemDiv.className="menu-item";
-    itemDiv.innerHTML=`<span>${item.name} - ${item.price}円</span>
-      ${item.soldout?'<span style="color:#999;">売り切れ</span>':'<button>追加</button>'}`;
-    const btn=itemDiv.querySelector("button");
-    if(btn && shopOpen) btn.onclick = ()=>addToCart(item);
-    else if(btn){ btn.disabled=true; btn.innerText="注文不可"; }
-    div.appendChild(itemDiv);
-  });
-}
-
-function addToCart(item){
-  if(!shopOpen) return;
-  cart.push(item);
-  renderCart();
-}
-
-function renderCart(){
-  const div=document.getElementById("cart");
-  div.innerHTML="";
-  cart.forEach((i,idx)=>{
-    const d=document.createElement("div");
-    d.innerHTML=`${i.name} - ${i.price}円 <button data-idx="${idx}">削除</button>`;
-    d.querySelector("button").onclick = e=>{
-      cart.splice(e.target.dataset.idx,1);
-      renderCart();
-    }
-    div.appendChild(d);
-  });
-}
-
-function updateOrderHistory(){
-  const div=document.getElementById("orderHistory");
-  if(orderHistory.length===0){ div.innerText="まだ注文はありません"; return; }
-  div.innerHTML="";
-  orderHistory.forEach(i=>{
-    const d=document.createElement("div");
-    d.innerText=`${i.name} - ${i.price}円`;
-    div.appendChild(d);
-  });
-}
-
-function updateWaitingNumber(){
-  waitingNumber = (waitingNumber % 100) + 1; // 1～100で循環
-  document.getElementById("waitingNumber").innerText = waitingNumber;
-}
-
-document.getElementById("orderBtn").onclick=async()=>{
-  if(orderLocked||!shopOpen) return;
-  if(cart.length===0){ showNotice("カートが空です"); return; }
-  orderLocked=true;
-  const btn=document.getElementById("orderBtn");
-  btn.disabled=true;
-  btn.innerText="送信中...";
-  try{
-    await fetch(API,{method:"POST",body:JSON.stringify({action:"addOrder",items:cart})});
-    showNotice("注文を受け付けました！");
-    orderHistory.push(...cart);
-    updateOrderHistory();
-    updateWaitingNumber(); // 注文ごとに番号更新
-    cart=[];
-    renderCart();
-    loadMenu();
-  }catch(e){
-    showNotice("送信に失敗しました");
-  }
-  btn.disabled=false;
-  btn.innerText="注文する";
-  orderLocked=false;
-}
-
-function getVisitorCount(){
-  const userId=localStorage.getItem("visitorId") || Date.now().toString()+Math.random();
-  localStorage.setItem("visitorId",userId);
-  fetch(API,{method:"POST",body:JSON.stringify({action:"trackVisitor",userId})})
-  .then(res=>res.json())
-  .then(data=>{
-    document.getElementById("visitors").innerText=`現在アクセス中: ${data.count}人`;
-  });
-}
-
-async function init(){
-  await loadShop();
-  await loadMenu();
-  updateOrderHistory();
-  getVisitorCount();
-  setInterval(()=>{
-    loadShop();
-    loadMenu();
-    getVisitorCount();
-  },5000);
-}
-
-init();
-</script>
+<script src="script.js"></script>
 </body>
 </html>
